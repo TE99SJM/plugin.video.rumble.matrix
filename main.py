@@ -197,34 +197,54 @@ def list_rumble(url, cat):
     return amount
 
 
-def create_dir_list( data, cat, type='video', search = False, play=False ):
-
+def create_dir_list(data, cat, type='video', search=False, play=False):
     amount = 0
 
     if type == 'video':
-        videos = re.compile('a href=([^\>]+)><div class=\"(?:[^\"]+)\"><img class=\"video-item--img\" src=(https:\/\/.+?) alt=(?:[^\>]+)>(?:<span class=\"video-item--watching\">[^\<]+</span>)?</div><(?:[^\>]+)></span></a><div class=\"video-item--info\"><time class=\"video-item--meta video-item--time\" datetime=(.+?)-(.+?)-(.+?)T(?:.+?) title\=\"(?:[^\"]+)\">(?:[^\<]+)</time><h3 class=video-item--title>(.+?)</h3><address(?:[^\>]+)><a rel=author class=\"(?:[^\=]+)=(.+?)><div class=ellipsis-1>(.+?)</div>', re.MULTILINE|re.DOTALL|re.IGNORECASE).findall(data)
-        if videos:
+        # Try original pattern first
+        videos = re.compile(
+            r'a href=([^\>]+)><div class=\"(?:[^\"]+)\"><img class=\"video-item--img\" src=(https:\/\/.+?) alt=(?:[^\>]+)>(?:<span class=\"video-item--watching\">[^\<]+</span>)?</div><(?:[^\>]+)></span></a><div class=\"video-item--info\"><time class=\"video-item--meta video-item--time\" datetime=(.+?)-(.+?)-(.+?)T(?:.+?) title\=\"(?:[^\"]+)\">(?:[^\<]+)</time><h3 class=video-item--title>(.+?)</h3><address(?:[^\>]+)><a rel=author class=\"(?:[^\=]+)=(.+?)><div class=ellipsis-1>(.+?)</div>',
+            re.MULTILINE | re.DOTALL | re.IGNORECASE
+        ).findall(data)
+
+        if not videos:
+            # Fallback regex for channel pages
+            videos = re.compile(
+                r'<a class="video-item--a" href="(.+?)">.*?'
+                r'<img class="video-item--img" src="(.+?)".*?'
+                r'<h3 class="video-item--title">(.*?)</h3>',
+                re.DOTALL
+            ).findall(data)
+
+            if videos:
+                amount = len(videos)
+                for link, img, title in videos:
+                    video_title = '[B]' + title.strip() + '[/B]'
+                    addDir(video_title, BASE_URL + link, 4, img, img, '', cat, False, True, play)
+
+        else:
             amount = len(videos)
             for link, img, year, month, day, title, channel_link, channel_name in videos:
                 if '<svg' in channel_name:
                     channel_name = channel_name.split('<svg')[0] + " (Verified)"
 
                 if int(lang) == 0:
-                    video_date = month+'/'+day+'/'+year
+                    video_date = month + '/' + day + '/' + year
                 else:
-                    video_date = day+'/'+month+'/'+year
+                    video_date = day + '/' + month + '/' + year
 
                 video_title = '[B]' + title + '[/B]\n[COLOR gold]' + channel_name + ' - [COLOR lime]' + video_date + '[/COLOR]'
-                #open get url and open player
-                addDir( video_title, BASE_URL + link, 4, str(img), str(img), '', cat, False, True, play )
+                addDir(video_title, BASE_URL + link, 4, str(img), str(img), '', cat, False, True, play)
 
     else:
-        channels = re.compile('a href=(.+?)>\s*<div class=\"channel-item--img\">\s*<i class=\'user-image user-image--img user-image--img--id-(.+?)\'></i>\s*</div>\s*<h3 class=channel-item--title>(.+?)</h3>\s*<span class=channel-item--subscribers>(.+?) subscribers</span>',re.DOTALL).findall(data)
+        channels = re.compile(
+            r'a href=(.+?)>\s*<div class=\"channel-item--img\">\s*<i class=\'user-image user-image--img user-image--img--id-(.+?)\'></i>\s*</div>\s*<h3 class=channel-item--title>(.+?)</h3>\s*<span class=channel-item--subscribers>(.+?) subscribers</span>',
+            re.DOTALL
+        ).findall(data)
+
         if channels:
             amount = len(channels)
             for link, img_id, channel_name, subscribers in channels:
-
-                # split channel and user
                 if search:
                     if cat == 'channel':
                         if '/c/' not in link:
@@ -235,12 +255,13 @@ def create_dir_list( data, cat, type='video', search = False, play=False ):
 
                 if '<svg' in channel_name:
                     channel_name = channel_name.split('<svg')[0] + " (Verified)"
-                img = str( get_image( data, img_id ) )
+
+                img = str(get_image(data, img_id))
                 video_title = '[B]' + channel_name + '[/B]\n[COLOR palegreen]' + subscribers + ' [COLOR yellow]' + __language__(30155) + '[/COLOR]'
-                #open get url and open player
-                addDir( video_title, BASE_URL + link, 3, img, img, '', cat, True, True, play )
+                addDir(video_title, BASE_URL + link, 3, img, img, '', cat, True, True, play)
 
     return amount
+
 
 
 def resolver(url):
